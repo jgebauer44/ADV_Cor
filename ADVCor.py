@@ -134,7 +134,7 @@ def ADV2D(field1, field2, first_U, first_V, dx, dy, bigT, nt, dt, beta,relax=1,u
     """This function performs the 2-D advection correction as described in Shapiro
        et al. 2010.
     """
-
+        
     u = np.copy(first_U)
     v = np.copy(first_V)
     
@@ -142,8 +142,8 @@ def ADV2D(field1, field2, first_U, first_V, dx, dy, bigT, nt, dt, beta,relax=1,u
     rdy = 1./dy
     rdt = 1./dt
     
-    x = np.arange(field1.shape[0])*dx
-    y = np.arange(field2.shape[1])*dy
+    x = np.arange(field1.shape[1])*dx
+    y = np.arange(field2.shape[0])*dy
     
     # Check to make sure the timing works out for bigT, nt, and dt
     
@@ -177,10 +177,9 @@ def ADV2D(field1, field2, first_U, first_V, dx, dy, bigT, nt, dt, beta,relax=1,u
         
         
         forwardref[:,:,0] = field1
-        forwardref[:,:,-1] = field2
+        forwardref[:,:,-1] = field2      
         backwardref[:,:,0] = field1
-        backwardref[:,:,-1] = field2
-        
+        backwardref[:,:,-1] = field2      
         divtraj[:,:,0,0] = div[:,:]
         divtraj[:,:,-1,-1] = div[:,:]
         
@@ -228,6 +227,7 @@ def ADV2D(field1, field2, first_U, first_V, dx, dy, bigT, nt, dt, beta,relax=1,u
             
             varout = ndimage.map_coordinates(field2,[ytemp_f.ravel()*rdy,xtemp_f.ravel()*rdx],order=1,cval=np.nan)
             forwardref[:,:,nt-1-traj] = np.copy(varout.reshape(field1.shape))
+            
             
             # Now do backward trajectories
             
@@ -648,3 +648,236 @@ def ADV3D(field1, field2, first_U, first_V, first_W, dx, dy, dz, bigT, nt, dt, b
             div[-1,:,:] = div[-2,:,:]
         
     return u, v, w, ref
+
+def precomputed_ADV2D(field1, field2, u, v, dx, dy, dt, nt):
+    
+    """This function will advect a 3D field using precomputed u and v.
+    """
+    
+    # Note: Variables are named ref, but can be any scalar in reality
+    
+    x = np.arange(field1.shape[1])*dx
+    y = np.arange(field2.shape[0])*dy
+    
+    rdx = 1./dx
+    rdy = 1./dy
+    
+    forwardref = np.ones((field1.shape[0],field1.shape[1],nt))*np.nan
+    backwardref = np.ones((field1.shape[0],field1.shape[1],nt))*np.nan
+    
+    forwardref[:,:,0] = field1
+    forwardref[:,:,-1] = field2      
+    backwardref[:,:,0] = field1
+    backwardref[:,:,-1] = field2   
+    
+    xtemp_f = (np.ones(field1.shape)*x[None,:])
+    ytemp_f = (np.ones(field1.shape)*y[:,None])
+        
+    xtemp_b = (np.ones(field1.shape)*x[None,:])
+    ytemp_b = (np.ones(field1.shape)*y[:,None])
+    
+    for traj in range(1,nt-1):
+            
+        # First calculate forward trajectories
+            
+        varout = ndimage.map_coordinates(u,[ytemp_f.ravel()*rdy,xtemp_f.ravel()*rdx],order=1,cval=np.nan)
+        k1x = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[ytemp_f.ravel()*rdy,xtemp_f.ravel()*rdx],order=1,cval=np.nan)
+        k1y = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ytemp_f+(0.5*k1y)).ravel()*rdy,(xtemp_f+(0.5*k1x)).ravel()*rdx],order=1,cval=np.nan)
+        k2x = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ytemp_f+(0.5*k1y)).ravel()*rdy,(xtemp_f+(0.5*k1x)).ravel()*rdx],order=1,cval=np.nan)
+        k2y = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ytemp_f+(0.5*k2y)).ravel()*rdy,(xtemp_f+(0.5*k2x)).ravel()*rdx],order=1,cval=np.nan)
+        k3x = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ytemp_f+(0.5*k2y)).ravel()*rdy,(xtemp_f+(0.5*k2x)).ravel()*rdx],order=1,cval=np.nan)
+        k3y = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ytemp_f+k3y).ravel()*rdy,(xtemp_f+k3x).ravel()*rdx],order=1,cval=np.nan)
+        k4x = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ytemp_f+k3y).ravel()*rdy,(xtemp_f+k3x).ravel()*rdx],order=1,cval=np.nan)
+        k4y = dt * np.copy(varout.reshape(field1.shape))
+            
+        xtemp_f = xtemp_f + (k1x + 2.*k2x + 2.*k3x + k4x)/6.
+        ytemp_f = ytemp_f + (k1y + 2.*k2y + 2.*k3y + k4y)/6.
+        
+        varout = ndimage.map_coordinates(field2,[ytemp_f.ravel()*rdy,xtemp_f.ravel()*rdx],order=1,cval=np.nan)
+        forwardref[:,:,nt-1-traj] = np.copy(varout.reshape(field1.shape))
+            
+            
+        # Now do backward trajectories
+            
+        varout = ndimage.map_coordinates(u,[ytemp_b.ravel()*rdy,xtemp_b.ravel()*rdx],order=1,cval=np.nan)
+        k1x = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[ytemp_b.ravel()*rdy,xtemp_b.ravel()*rdx],order=1,cval=np.nan)
+        k1y = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ytemp_b+(0.5*k1y)).ravel()*rdy,(xtemp_b+(0.5*k1x)).ravel()*rdx],order=1,cval=np.nan)
+        k2x = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ytemp_b+(0.5*k1y)).ravel()*rdy,(xtemp_b+(0.5*k1x)).ravel()*rdx],order=1,cval=np.nan)
+        k2y = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ytemp_b+(0.5*k2y)).ravel()*rdy,(xtemp_b+(0.5*k2x)).ravel()*rdx],order=1,cval=np.nan)
+        k3x = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ytemp_b+(0.5*k2y)).ravel()*rdy,(xtemp_b+(0.5*k2x)).ravel()*rdx],order=1,cval=np.nan)
+        k3y = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ytemp_b+k3y).ravel()*rdy,(xtemp_b+k3x).ravel()*rdx],order=1,cval=np.nan)
+        k4x = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ytemp_b+k3y).ravel()*rdy,(xtemp_b+k3x).ravel()*rdx],order=1,cval=np.nan)
+        k4y = -dt * np.copy(varout.reshape(field1.shape))
+            
+        xtemp_b = xtemp_b + (k1x + 2.*k2x + 2.*k3x + k4x)/6.
+        ytemp_b = ytemp_b + (k1y + 2.*k2y + 2.*k3y + k4y)/6.
+            
+        varout = ndimage.map_coordinates(field1,[ytemp_b.ravel()*rdy,xtemp_b.ravel()*rdx],order=1,cval=np.nan)
+        backwardref[:,:,traj] = np.copy(varout.reshape(field1.shape))
+        
+    ratio = np.arange(nt)/(np.float(nt-1))
+    ref = backwardref + (ratio[None,None,:]*(forwardref-backwardref))
+        
+    ref[:,:,0] = backwardref[:,:,0]
+    ref[:,:,-1] = backwardref[:,:,-1]
+        
+    return ref
+
+
+def precomputed_ADV3D(field1, field2, u, v, w, dx, dy, dz, dt, nt):
+    
+    """This function will advect a 3D field using precomputed u and v.
+    """
+    # Note: Variables are named ref, but can be any scalar in reality
+    
+    x = np.arange(field1.shape[2])*dx
+    y = np.arange(field1.shape[1])*dy
+    z = np.arange(field1.shape[0])*dz
+    
+    rdx = 1./dx
+    rdy = 1./dy
+    rdz = 1./dz
+    
+    forwardref = np.ones((field1.shape[0],field1.shape[1],field1.shape[2],nt))*np.nan
+    backwardref = np.ones((field1.shape[0],field1.shape[1],field1.shape[2],nt))*np.nan
+    
+    forwardref[:,:,:,0] = field1
+    forwardref[:,:,:,-1] = field2
+    backwardref[:,:,:,0] = field1
+    backwardref[:,:,:,-1] = field2
+    
+    xtemp_f = (np.ones(field1.shape)*x[None,None,:])
+    ytemp_f = (np.ones(field1.shape)*y[None,:,None])
+    ztemp_f = (np.ones(field1.shape)*z[:,None,None])
+    
+    xtemp_b = (np.ones(field1.shape)*x[None,None,:])
+    ytemp_b = (np.ones(field1.shape)*y[None,:,None])
+    ztemp_b = (np.ones(field1.shape)*z[:,None,None])
+    
+    for traj in range(1,nt-1):
+            
+        # First calculate forward trajectories
+            
+        varout = ndimage.map_coordinates(u,[ztemp_f.ravel()*rdz,ytemp_f.ravel()*rdy,xtemp_f.ravel()*rdx],order=1,cval=np.nan)
+        k1x = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[ztemp_f.ravel()*rdz,ytemp_f.ravel()*rdy,xtemp_f.ravel()*rdx],order=1,cval=np.nan)
+        k1y = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(w,[ztemp_f.ravel()*rdz,ytemp_f.ravel()*rdy,xtemp_f.ravel()*rdx],order=1,cval=np.nan)
+        k1z = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ztemp_f+(0.5*k1z)).ravel()*rdz,(ytemp_f+(0.5*k1y)).ravel()*rdy,(xtemp_f+(0.5*k1x)).ravel()*rdx],order=1,cval=np.nan)
+        k2x = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ztemp_f+(0.5*k1z)).ravel()*rdz,(ytemp_f+(0.5*k1y)).ravel()*rdy,(xtemp_f+(0.5*k1x)).ravel()*rdx],order=1,cval=np.nan)
+        k2y = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(w,[(ztemp_f+(0.5*k1z)).ravel()*rdz,(ytemp_f+(0.5*k1y)).ravel()*rdy,(xtemp_f+(0.5*k1x)).ravel()*rdx],order=1,cval=np.nan)
+        k2z = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ztemp_f+(0.5*k2z)).ravel()*rdz,(ytemp_f+(0.5*k2y)).ravel()*rdy,(xtemp_f+(0.5*k2x)).ravel()*rdx],order=1,cval=np.nan)
+        k3x = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ztemp_f+(0.5*k2z)).ravel()*rdz,(ytemp_f+(0.5*k2y)).ravel()*rdy,(xtemp_f+(0.5*k2x)).ravel()*rdx],order=1,cval=np.nan)
+        k3y = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(w,[(ztemp_f+(0.5*k2z)).ravel()*rdz,(ytemp_f+(0.5*k2y)).ravel()*rdy,(xtemp_f+(0.5*k2x)).ravel()*rdx],order=1,cval=np.nan)
+        k3z = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ztemp_f+k3z).ravel()*rdz,(ytemp_f+k3y).ravel()*rdy,(xtemp_f+k3x).ravel()*rdx],order=1,cval=np.nan)
+        k4x = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ztemp_f+k3z).ravel()*rdz,(ytemp_f+k3y).ravel()*rdy,(xtemp_f+k3x).ravel()*rdx],order=1,cval=np.nan)
+        k4y = dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(w,[(ztemp_f+k3z).ravel()*rdz,(ytemp_f+k3y).ravel()*rdy,(xtemp_f+k3x).ravel()*rdx],order=1,cval=np.nan)
+        k4z = dt * np.copy(varout.reshape(field1.shape))
+            
+        xtemp_f = xtemp_f + (k1x + 2.*k2x + 2.*k3x + k4x)/6.
+        ytemp_f = ytemp_f + (k1y + 2.*k2y + 2.*k3y + k4y)/6.
+        ztemp_f = ztemp_f + (k1z + 2.*k2z + 2.*k3z + k4z)/6.
+            
+        varout = ndimage.map_coordinates(field2,[ztemp_f.ravel()*rdz,ytemp_f.ravel()*rdy,xtemp_f.ravel()*rdx],order=1,cval=np.nan)
+        forwardref[:,:,:,nt-1-traj] = np.copy(varout.reshape(field1.shape))
+            
+        # Now do backward trajectories
+            
+        varout = ndimage.map_coordinates(u,[ztemp_b.ravel()*rdz,ytemp_b.ravel()*rdy,xtemp_b.ravel()*rdx],order=1,cval=np.nan)
+        k1x = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[ztemp_b.ravel()*rdz,ytemp_b.ravel()*rdy,xtemp_b.ravel()*rdx],order=1,cval=np.nan)
+        k1y = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(w,[ztemp_b.ravel()*rdz,ytemp_b.ravel()*rdy,xtemp_b.ravel()*rdx],order=1,cval=np.nan)
+        k1z = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ztemp_b+(0.5*k1z)).ravel()*rdz,(ytemp_b+(0.5*k1y)).ravel()*rdy,(xtemp_b+(0.5*k1x)).ravel()*rdx],order=1,cval=np.nan)
+        k2x = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ztemp_b+(0.5*k1z)).ravel()*rdz,(ytemp_b+(0.5*k1y)).ravel()*rdy,(xtemp_b+(0.5*k1x)).ravel()*rdx],order=1,cval=np.nan)
+        k2y = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(w,[(ztemp_b+(0.5*k1z)).ravel()*rdz,(ytemp_b+(0.5*k1y)).ravel()*rdy,(xtemp_b+(0.5*k1x)).ravel()*rdx],order=1,cval=np.nan)
+        k2z = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ztemp_b+(0.5*k2z)).ravel()*rdz,(ytemp_b+(0.5*k2y)).ravel()*rdy,(xtemp_b+(0.5*k2x)).ravel()*rdx],order=1,cval=np.nan)
+        k3x = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ztemp_b+(0.5*k2z)).ravel()*rdz,(ytemp_b+(0.5*k2y)).ravel()*rdy,(xtemp_b+(0.5*k2x)).ravel()*rdx],order=1,cval=np.nan)
+        k3y = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(w,[(ztemp_b+(0.5*k2z)).ravel()*rdz,(ytemp_b+(0.5*k2y)).ravel()*rdy,(xtemp_b+(0.5*k2x)).ravel()*rdx],order=1,cval=np.nan)
+        k3z = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(u,[(ztemp_b+k3z).ravel()*rdz,(ytemp_b+k3y).ravel()*rdy,(xtemp_b+k3x).ravel()*rdx],order=1,cval=np.nan)
+        k4x = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(v,[(ztemp_b+k3z).ravel()*rdz,(ytemp_b+k3y).ravel()*rdy,(xtemp_b+k3x).ravel()*rdx],order=1,cval=np.nan)
+        k4y = -dt * np.copy(varout.reshape(field1.shape))
+            
+        varout = ndimage.map_coordinates(w,[(ztemp_b+k3z).ravel()*rdz,(ytemp_b+k3y).ravel()*rdy,(xtemp_b+k3x).ravel()*rdx],order=1,cval=np.nan)
+        k4z = -dt * np.copy(varout.reshape(field1.shape))
+            
+        xtemp_b = xtemp_b + (k1x + 2.*k2x + 2.*k3x + k4x)/6.
+        ytemp_b = ytemp_b + (k1y + 2.*k2y + 2.*k3y + k4y)/6.
+        ztemp_b = ztemp_b + (k1z + 2.*k2z + 2.*k3z + k4z)/6.
+        
+        varout = ndimage.map_coordinates(field1,[ztemp_b.ravel()*rdz,ytemp_b.ravel()*rdy,xtemp_b.ravel()*rdx],order=1,cval=np.nan)
+        backwardref[:,:,:,traj] = np.copy(varout.reshape(field1.shape))
+        
+    ratio = np.arange(nt)/(np.float(nt-1))
+    ref = backwardref + (ratio[None,None,None,:]*(forwardref-backwardref))
+        
+    ref[:,:,:,0] = backwardref[:,:,:,0]
+    ref[:,:,:,-1] = backwardref[:,:,:,-1]
+        
+    return ref
