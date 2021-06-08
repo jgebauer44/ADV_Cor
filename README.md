@@ -178,7 +178,9 @@ ADV_Cor should play nicely with PyART! Here is how ADV_Cor could be used:
 
 4. Wait. This is a computationally intensive iterative procedure. Depending on the size the gridded radar fields, millions of trajectories may be needed each iteration. If you call the function with the verbose arguement set to true, the procedure will output the maximum change in pattern translation component from each iteration so you know how close the procedure is to completing.
 
-5. Enjoy your advection corrected output!
+5. If an additional field needs to be advection corrected using the retrieved pattern translation components this can be done with precomputed_ADV2D or precomputed_ADV3D.
+
+6. Enjoy your advection corrected output!
 
 # References
 
