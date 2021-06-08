@@ -14,16 +14,145 @@ ADV_Cor includes spatially variable advection correction procedures that are oft
 
 # Procdures
 
-ADV_Cor includes the following procedures:
+**GalChen2D**(field1, field2, delta_t, dx, missing=999.)
 
-GalChen2D - A function that takes two input two-dimensional scalar fields and finds spatially constant pattern translation components that can be used as a first guess for the the other procedures
+>A function that takes two input two-dimensional scalar fields and finds spatially constant pattern translation components that can be used as a first guess for   the the other procedures
 
-GalChen3D - A function similar to GalChen2D, but for three-dimensional scalar fields
+  Inputs:
+  
+    field1 - (y,x) array for the first input time
+    field2 - (y,x) array for the second input time
+    delta_t - Float for the time difference between input fields
+    missing - Value for missing data if NaNs are not used in input fields
 
-ADV2D - The two-dimensional spatially variable advection correction procedure
+  Outputs:
+  
+    U - (y,x) array for spatially constant x-component of pattern translation
+    V - (y,x) array for spatially constant y-component of pattern translation
 
-ADV3D - The three-dimensional spatially variable advection correction procedure
+**GalChen3D**(field1, field2, delta_t, dx, missing=999.)
 
+> A function similar to GalChen2D, but for three-dimensional scalar fields
+  
+  Inputs:
+  
+    field1 - (z,y,x) array for the first input time
+    field2 - (z,y,x) array for the second input time
+    delta_t - Float for the time difference between input fields
+    missing - Value for missing data if NaNs are not used in input fields
+    
+  Outputs:
+  
+    U - (z,y,x) array for spatially constant x-component of pattern translation
+    V - (z,y,x) array for spatially constant y-component of pattern translation
+    W - (z,y,x) array for spatially constant z-component of pattern translation
+
+**ADV2D**(field1, field2, first_U, first_V, dx, dy, bigT, nt ,dt, beta, relax=1, under=1, itermax=20000, intermainmax=100, tol=0.001, tol2=0.01, missing=999, verbose=True)
+
+>The two-dimensional spatially variable advection correction procedure
+
+  Inputs:
+    
+    field1 - (y,x) array for the first input time
+    field2 - (y,x) array for the second input time
+    first_U - (y,x) array with the first guess U pattern translation component
+    first_V - (y,x) array with the first guess V pattern translation component
+    dx - float for the x grid spacing
+    dy - float for the y grid spacing
+    bigT - float for time difference between two input files
+    nt - int for number of timesteps to advection correct data two, including the two input times
+    dt - float for the length of the timesteps
+    beta - float for smoothing parameter
+    relax - float for over-relaxation factor between 1 and 2 for the relaxation solution of the pde's
+    under - float for under-relaxation factor beween 0 and 1 for the outer loop solution
+    intermax - int for maximum number of iterations for relaxation solution
+    intermaxinmax - int for maximum number of iterations for outer loop of procedure
+    tol - float for tolerance of relaxation solution
+    tol2 - float for tolerance of outer loop of procedure
+    missing - Value for missing data in NaNs are not used in the input fields
+   
+  Outputs:
+    
+    U - (y,x) array of the x-component of pattern translation
+    V - (y,x) array of the y-component of pattern translation
+    ref - (y,x,nt) array of the advection corrected scalar field
+
+
+**ADV3D**(field1, field2, first_U, first_V, first_W, dx, dy, dz, bigT, nt, dt, beta, gamma, eta, nu, relax=1, under=1, itermax=20000, itermainmax=100, tol=0.001, tol2=0.01,missing=999.,verbose=999.)
+
+>The three-dimensional spatially variable advection correction procedure
+
+  Inputs:
+  
+    field1 - (z,y,x) array for the first input time
+    field2 - (z,y,x) array for the second input time
+    first_U - (z,y,x) array with the first guess U pattern translation component
+    first_V - (z,y,x) array with the first guess V pattern translation component
+    first_W - (z,y,x) array with the first guess W pattern translation component
+    dx - float for the x grid spacing
+    dy - float for the y grid spacing
+    dz - float for the z grid spacing
+    bigT - float for time difference between two input files
+    nt - int for number of timesteps to advection correct data two, including the two input times
+    dt - float for the length of the timesteps
+    beta - float for horizontal smoothing parameter of the horizontal pattern translation components
+    gamma - float for the vertical smoothing parameter of the horizontal pattern translation components
+    eta - float for the horizontal smoothing parameter of the vertical pattern translation components
+    nu - float for the vertical smoothing parameter of the vertical pattern translation components
+    relax - float for over-relaxation factor between 1 and 2 for the relaxation solution of the pde's
+    under - float for under-relaxation factor beween 0 and 1 for the outer loop solution
+    intermax - int for maximum number of iterations for relaxation solution
+    intermaxinmax - int for maximum number of iterations for outer loop of procedure
+    tol - float for tolerance of relaxation solution
+    tol2 - float for tolerance of outer loop of procedure
+    missing - Value for missing data in NaNs are not used in the input fields
+    
+  Outputs:
+    
+    U - (z,y,x) array for the x-component of the pattern translation component
+    V - (z,y,x) array for the y-component of the pattern translation component
+    W - (z,y,x) array for the z-component of the pattern translation component
+    ref - (z,y,x,t) array of the advection corrected field
+    
+**precomputed_ADV2D**(field1, field2, u, v, dx, dy, dt, nt)
+
+> Advect a two-dimensional field from computed pattern translation components
+
+  Inputs:
+      
+    field1 - (y,x) array for the first input time
+    field2 - (y,x) array for the second input time
+    u - (y,x) array for the x-component of the pattern translation
+    v - (y,x) array for the y-component of the pattern translation
+    dx - float for the x grid spacing
+    dy - float for the y grid spacing
+    dt - float for the length of the timesteps
+    nt - int for number of timesteps to advection correct data two, including the two input times
+  
+  Outputs:
+    
+    ref - (y,x,nt) array of the advection corrected field
+
+**precomputed_ADV3D**(field1, field2, u, v, w, dx, dy, dz, dt, nt)
+
+> Advect a two-dimensional field from computed pattern translation components
+
+  Inputs:
+      
+    field1 - (z,y,x) array for the first input time
+    field2 - (z,y,x) array for the second input time
+    u - (z,y,x) array for the x-component of the pattern translation
+    v - (z,y,x) array for the y-component of the pattern translation
+    w - (z,y,x) array for the z-component of the pattern translation
+    dx - float for the x grid spacing
+    dy - float for the y grid spacing
+    dz - float for the z grid spacing
+    dt - float for the length of the timesteps
+    nt - int for number of timesteps to advection correct data two, including the two input times
+  
+  Outputs:
+    
+    ref - (z,y,x,nt) array of the advection corrected field
 
 # Installation
 
